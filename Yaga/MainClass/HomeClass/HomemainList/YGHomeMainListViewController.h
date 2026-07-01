@@ -1,0 +1,22 @@
+//
+//  YGHomeMainListViewController.h
+//  Yaga
+//
+
+#import "YGBaseViewController.h"
+
+NS_ASSUME_NONNULL_BEGIN
+
+@interface YGHomeMainListViewController : YGBaseViewController
+
+@property (nonatomic, assign) BOOL suppressAutomaticReload;
+
+- (instancetype)initWithTitleText:(NSString *)titleText;
+- (void)reloadData;
+
+- (instancetype)initWithNibName:(nullable NSString *)nibNameOrNil bundle:(nullable NSBundle *)nibBundleOrNil NS_UNAVAILABLE;
+- (instancetype)initWithCoder:(NSCoder *)coder NS_UNAVAILABLE;
+
+@end
+
+NS_ASSUME_NONNULL_END
