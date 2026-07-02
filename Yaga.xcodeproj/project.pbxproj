@@ -6,15 +6,8 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXBuildFile section */
-		17887EB02FEB7D0500C8CAD1 /* AGENTS.md in Resources */ = {isa = PBXBuildFile; fileRef = 17887EAF2FEB7D0500C8CAD1 /* AGENTS.md */; };
-		1788805C2FEBBFED00C8CAD1 /* Yaga_iOS_Development_Document.md in Resources */ = {isa = PBXBuildFile; fileRef = 1788805B2FEBBFED00C8CAD1 /* Yaga_iOS_Development_Document.md */; };
-/* End PBXBuildFile section */
-
 /* Begin PBXFileReference section */
 		17887E8C2FEB6DCF00C8CAD1 /* Yaga.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Yaga.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		17887EAF2FEB7D0500C8CAD1 /* AGENTS.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = AGENTS.md; sourceTree = "<group>"; };
-		1788805B2FEBBFED00C8CAD1 /* Yaga_iOS_Development_Document.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = Yaga_iOS_Development_Document.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -53,8 +46,6 @@
 		17887E832FEB6DCF00C8CAD1 = {
 			isa = PBXGroup;
 			children = (
-				1788805B2FEBBFED00C8CAD1 /* Yaga_iOS_Development_Document.md */,
-				17887EAF2FEB7D0500C8CAD1 /* AGENTS.md */,
 				17887E8E2FEB6DCF00C8CAD1 /* Yaga */,
 				17887E8D2FEB6DCF00C8CAD1 /* Products */,
 			);
@@ -131,8 +122,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1788805C2FEBBFED00C8CAD1 /* Yaga_iOS_Development_Document.md in Resources */,
-				17887EB02FEB7D0500C8CAD1 /* AGENTS.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
