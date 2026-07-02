@@ -27,12 +27,17 @@
     self.view.backgroundColor = UIColor.whiteColor;
     self.title = @"Recharge";
     self.items = @[
-        @{@"title": @"100", @"buttonTitle": @"$0.99", @"productId": @"lvbsvhxcgcrvesor"},
-        @{@"title": @"500", @"buttonTitle": @"$4.99", @"productId": @"dxismgcwewhrtezo"},
-        @{@"title": @"1000", @"buttonTitle": @"$9.99", @"productId": @"khtxlcejaxmqcsra"},
-        @{@"title": @"2000", @"buttonTitle": @"$19.99", @"productId": @"yadwwvxspgxwlndb"},
-        @{@"title": @"5000", @"buttonTitle": @"$49.99", @"productId": @"qnrcuelbtiuflyky"},
-        @{@"title": @"10000", @"buttonTitle": @"$99.99", @"productId": @"ymohxnvpkqxutvab"}
+        @{@"title": @"400", @"buttonTitle": @"$0.99", @"productId": @"aroaukhoebtzckkw"},
+        @{@"title": @"800", @"buttonTitle": @"$1.99", @"productId": @"aiuebsdqqeazzvby"},
+        @{@"title": @"2190", @"buttonTitle": @"$3.99", @"productId": @"kqmzrvbtjdxsghpn"},
+        @{@"title": @"2450", @"buttonTitle": @"$4.99", @"productId": @"atwmniibcyrthvkd"},
+        @{@"title": @"3950", @"buttonTitle": @"$8.99", @"productId": @"asdfghjklnzxcvbm"},
+        
+        @{@"title": @"5150", @"buttonTitle": @"$9.99", @"productId": @"txudwhnwewkawjol"},
+        @{@"title": @"5700", @"buttonTitle": @"$13.99", @"productId": @"wtyuioplazrcnbkdf"},
+        @{@"title": @"10800", @"buttonTitle": @"$19.99", @"productId": @"allcimxthcixslbm"},
+        @{@"title": @"29400", @"buttonTitle": @"$49.99", @"productId": @"yfdaeppkgqpudmkv"},
+        @{@"title": @"63700", @"buttonTitle": @"$99.99", @"productId": @"dtdjdbmtlxdlteoq"}
     ];
     [self setupSubviews];
 }
