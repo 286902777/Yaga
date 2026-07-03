@@ -165,13 +165,13 @@
 
     if ([title isEqualToString:@"User Agreement"]) {
         YGWebViewController *controller = [[YGWebViewController alloc] initWithTitle:@"User Agreement"
-                                                                           URLString:@"https://mellow-naiad-33b3e3.netlify.app/users"];
+                                                                           URLString:@"https://app.i32823wk.link/users"];
         [self.navigationController pushViewController:controller animated:YES];
         return;
     }
 
     YGWebViewController *controller = [[YGWebViewController alloc] initWithTitle:@"Privacy Agreement"
-                                                                       URLString:@"https://mellow-naiad-33b3e3.netlify.app/privacy"];
+                                                                       URLString:@"https://app.i32823wk.link/privacy"];
     [self.navigationController pushViewController:controller animated:YES];
 }
 

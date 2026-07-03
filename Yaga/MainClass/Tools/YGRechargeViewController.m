@@ -34,7 +34,7 @@
         @{@"title": @"3950", @"buttonTitle": @"$8.99", @"productId": @"asdfghjklnzxcvbm"},
         
         @{@"title": @"5150", @"buttonTitle": @"$9.99", @"productId": @"txudwhnwewkawjol"},
-        @{@"title": @"5700", @"buttonTitle": @"$13.99", @"productId": @"wtyuioplazrcnbkdf"},
+        @{@"title": @"5700", @"buttonTitle": @"$14.99", @"productId": @"wtyuioplazrcnbkdf"},
         @{@"title": @"10800", @"buttonTitle": @"$19.99", @"productId": @"allcimxthcixslbm"},
         @{@"title": @"29400", @"buttonTitle": @"$49.99", @"productId": @"yfdaeppkgqpudmkv"},
         @{@"title": @"63700", @"buttonTitle": @"$99.99", @"productId": @"dtdjdbmtlxdlteoq"}

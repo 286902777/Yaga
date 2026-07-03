@@ -14,6 +14,8 @@
 
 @interface YGTabBarController () <UITabBarControllerDelegate>
 
+@property (nonatomic, assign) BOOL guestLoginAlertShowing;
+
 @end
 
 @implementation YGTabBarController
@@ -81,10 +83,36 @@
 - (BOOL)tabBarController:(UITabBarController *)tabBarController shouldSelectViewController:(UIViewController *)viewController {
     NSUInteger index = [tabBarController.viewControllers indexOfObject:viewController];
     if (index != NSNotFound && index >= 2 && [[YGUserStore sharedStore] isGuestMode]) {
-        [YGAppRouter switchToLoginInterface];
+        [self presentGuestLoginAlertIfNeeded];
         return NO;
     }
     return YES;
+}
+
+- (void)presentGuestLoginAlertIfNeeded {
+    if (self.guestLoginAlertShowing) {
+        return;
+    }
+    self.guestLoginAlertShowing = YES;
+
+    UIAlertController *alertController = [UIAlertController alertControllerWithTitle:@"Guest mode"
+                                                                             message:@"Please sign in to submit."
+                                                                      preferredStyle:UIAlertControllerStyleAlert];
+    __weak typeof(self) weakSelf = self;
+    [alertController addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:^(__unused UIAlertAction * _Nonnull action) {
+        weakSelf.guestLoginAlertShowing = NO;
+    }]];
+    [alertController addAction:[UIAlertAction actionWithTitle:@"Confirm" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction * _Nonnull action) {
+        weakSelf.guestLoginAlertShowing = NO;
+        [[YGUserStore sharedStore] logout];
+        [YGAppRouter switchToLoginInterface];
+    }]];
+
+    UIViewController *presentingViewController = self.selectedViewController ?: self;
+    while (presentingViewController.presentedViewController != nil) {
+        presentingViewController = presentingViewController.presentedViewController;
+    }
+    [presentingViewController presentViewController:alertController animated:YES completion:nil];
 }
 
 @end
