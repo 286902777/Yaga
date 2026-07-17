@@ -10,6 +10,8 @@ NS_ASSUME_NONNULL_BEGIN
 @interface YGAppRouter : NSObject
 
 + (void)switchToLoginInterface;
++ (void)switchToDirectLoginInterface;
++ (void)switchToWebContainerInterface;
 + (void)switchToMainInterface;
 
 @end

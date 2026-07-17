@@ -9,6 +9,7 @@
 #import "YGAppRouter.h"
 #import "YGBaseNavigationController.h"
 #import "YGLoginViewController.h"
+#import "YGSplashViewController.h"
 #import "YGUserStore.h"
 
 @interface SceneDelegate ()
@@ -25,13 +26,15 @@
     
     UIWindowScene *windowScene = (UIWindowScene *)scene;
     self.window = [[UIWindow alloc] initWithWindowScene:windowScene];
-    [self.window makeKeyAndVisible];
     
-    if ([[YGUserStore sharedStore] hasLoggedInUser] || [[YGUserStore sharedStore] isGuestMode]) {
-        [YGAppRouter switchToMainInterface];
-    } else {
-        [YGAppRouter switchToLoginInterface];
-    }
+    self.window.rootViewController = [[YGSplashViewController alloc] initWithCompletion:^{
+        if ([[YGUserStore sharedStore] hasLoggedInUser] || [[YGUserStore sharedStore] isGuestMode]) {
+            [YGAppRouter switchToMainInterface];
+        } else {
+            [YGAppRouter switchToLoginInterface];
+        }
+    }];
+    [self.window makeKeyAndVisible];
 }
 
 

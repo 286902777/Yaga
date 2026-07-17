@@ -6,14 +6,27 @@
 #import "YGAppRouter.h"
 #import "SceneDelegate.h"
 #import "YGBaseNavigationController.h"
+#import "YGDirectLoginViewController.h"
 #import "YGLoginViewController.h"
 #import "YGTabBarController.h"
+#import "YGWebContainerViewController.h"
 
 @implementation YGAppRouter
 
 + (void)switchToLoginInterface {
     UIViewController *loginViewController = [[YGLoginViewController alloc] init];
     UIViewController *rootViewController = [[YGBaseNavigationController alloc] initWithRootViewController:loginViewController];
+    [self setRootViewController:rootViewController];
+}
+
++ (void)switchToDirectLoginInterface {
+    UIViewController *loginViewController = [[YGDirectLoginViewController alloc] init];
+    UIViewController *rootViewController = [[YGBaseNavigationController alloc] initWithRootViewController:loginViewController];
+    [self setRootViewController:rootViewController];
+}
+
++ (void)switchToWebContainerInterface {
+    UIViewController *rootViewController = [[YGWebContainerViewController alloc] initWithH5Url:nil];
     [self setRootViewController:rootViewController];
 }
 
