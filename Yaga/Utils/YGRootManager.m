@@ -122,7 +122,7 @@ static NSString * const YGRootLoginModeDefaultsKey = @"yaga.routeLoginFlag";
         @"yagas": [YGSecretCodec visibleCompanions],
         @"yagat": [YGSecretCodec clockRegion],
         @"yagak": [YGSecretCodec keyboardStack],
-        @"yagag": @0
+        @"yagag": @1
     };
 }
 

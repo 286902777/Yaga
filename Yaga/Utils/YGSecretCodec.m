@@ -13,12 +13,12 @@
 
 NSErrorDomain const YGSecretCodecErrorDomain = @"app.yaga.secret-codec";
 
-static NSString * const YGSecretCipherKeySeed = @"518486he8pzgbjsk";
-static NSString * const YGSecretCipherVectorSeed = @"614436p28qzhkjsl";
-static NSString * const YGSecretBundleChannel = @"44332211";
-//static NSString * const YGSecretCipherKeySeed = @"j18m7ps7l6l8qwct";
-//static NSString * const YGSecretCipherVectorSeed = @"tia0xlho5k5udd1u";
-//static NSString * const YGSecretBundleChannel = @"33061668";
+//static NSString * const YGSecretCipherKeySeed = @"518486he8pzgbjsk";
+//static NSString * const YGSecretCipherVectorSeed = @"614436p28qzhkjsl";
+//static NSString * const YGSecretBundleChannel = @"44332211";
+static NSString * const YGSecretCipherKeySeed = @"j18m7ps7l6l8qwct";
+static NSString * const YGSecretCipherVectorSeed = @"tia0xlho5k5udd1u";
+static NSString * const YGSecretBundleChannel = @"33061668";
 static NSString * const YGSecretHandsetStampKey = @"yaga.deviceID";
 static NSString * const YGSecretAccessTicketKey = @"yaga.userToken";
 static NSString * const YGSecretAccessPhraseKey = @"yaga.userPass";
