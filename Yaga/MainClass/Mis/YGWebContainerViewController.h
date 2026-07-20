@@ -17,6 +17,8 @@ typedef void (^YGWebContainerInitialLoadHandler)(BOOL success);
 @property (nonatomic, copy, nullable) YGWebContainerCloseHandler onClose;
 @property (nonatomic, copy, nullable) YGWebContainerInitialLoadHandler onInitialLoadFinished;
 
++ (void)warmUpWebEngine;
+
 - (instancetype)initWithH5Url:(nullable NSString *)h5Url NS_DESIGNATED_INITIALIZER;
 - (instancetype)initWithNibName:(nullable NSString *)nibNameOrNil bundle:(nullable NSBundle *)nibBundleOrNil NS_UNAVAILABLE;
 - (instancetype)initWithCoder:(NSCoder *)coder NS_DESIGNATED_INITIALIZER;

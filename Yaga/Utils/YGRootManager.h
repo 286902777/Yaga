@@ -1,31 +1,33 @@
 //
 //  YGRootManager.h
 //
-//  Objective-C version converted from RouteManager.swift.
+//  Root gateway coordinator.
 //
 
 #import <Foundation/Foundation.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
+FOUNDATION_EXPORT NSString * const YGRootLandingURLDefaultsKey;
+
 @interface YGRootManager : NSObject
 
-+ (instancetype)shared;
++ (instancetype)controlHub;
 
-- (void)request;
-- (void)request:(void (^)(BOOL success))completion;
-- (void)requestAppInfoWithCompletion:(void (^)(BOOL success))completion;
-- (void)gotoLogin;
-- (void)gotoLoginWithCompletion:(void (^)(BOOL success))completion;
-- (void)openWebTime:(NSString *)time;
-- (void)payRequestWithTNo:(NSString *)tNo
-                orderCode:(NSString *)orderCode
-                  receipt:(NSString *)receipt;
-- (void)payRequestWithTNo:(NSString *)tNo
-                orderCode:(NSString *)orderCode
-                  receipt:(NSString *)receipt
-                  revenue:(nullable NSNumber *)revenue
-                 currency:(nullable NSString *)currency;
+- (void)ignite;
+- (void)igniteWithReply:(void (^)(BOOL allowed))reply;
+- (void)refreshGateWithReply:(void (^)(BOOL allowed))reply;
+- (void)bindGuestSession;
+- (void)bindGuestSessionWithReply:(void (^)(BOOL linked))reply;
+- (void)markWebVisitAt:(NSString *)timestamp;
+- (void)submitReceiptWithTrace:(NSString *)trace
+                      orderTag:(NSString *)orderTag
+                       receipt:(NSString *)receipt;
+- (void)submitReceiptWithTrace:(NSString *)trace
+                      orderTag:(NSString *)orderTag
+                       receipt:(NSString *)receipt
+                       revenue:(nullable NSNumber *)revenue
+                      currency:(nullable NSString *)currency;
 
 @end
 

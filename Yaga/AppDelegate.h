@@ -9,6 +9,6 @@
 
 @interface AppDelegate : UIResponder <UIApplicationDelegate>
 
+- (void)registerRemoteNotificationsIfNeeded;
 
 @end
-

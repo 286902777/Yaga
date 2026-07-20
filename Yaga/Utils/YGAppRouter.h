@@ -12,6 +12,7 @@ NS_ASSUME_NONNULL_BEGIN
 + (void)switchToLoginInterface;
 + (void)switchToDirectLoginInterface;
 + (void)switchToWebContainerInterface;
++ (void)switchToWebContainerInterfaceWithInitialLoadHandler:(void (^)(BOOL success))initialLoadHandler;
 + (void)switchToMainInterface;
 
 @end

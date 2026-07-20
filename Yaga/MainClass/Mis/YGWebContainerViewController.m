@@ -6,11 +6,16 @@
 //
 
 #import "YGWebContainerViewController.h"
+#import "YGRootManager.h"
+#import "YGSecretCodec.h"
+#import "YGHUDHelper.h"
+#import "AppDelegate.h"
+#import <StoreKit/StoreKit.h>
 #import <WebKit/WebKit.h>
 
-static NSString * const YGWebContainerUserDefaultsHostUrlKey = @"HostUrl";
 static NSInteger const YGWebContainerTextMaskSeed = 37;
 static NSInteger const YGWebContainerTextMaskStep = 11;
+static WKWebView *YGWebContainerWarmWebView = nil;
 
 @interface YGWebContainerWeakScriptMessageHandler : NSObject <WKScriptMessageHandler>
 
@@ -20,7 +25,7 @@ static NSInteger const YGWebContainerTextMaskStep = 11;
 
 @end
 
-@interface YGWebContainerViewController () <WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, UIGestureRecognizerDelegate>
+@interface YGWebContainerViewController () <WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, UIGestureRecognizerDelegate, SKProductsRequestDelegate, SKPaymentTransactionObserver>
 
 @property (nonatomic, copy, nullable) NSString *h5Url;
 @property (nonatomic, strong) UIImageView *backgroundImageView;
@@ -32,10 +37,27 @@ static NSInteger const YGWebContainerTextMaskStep = 11;
 @property (nonatomic, assign) BOOL isPurchasing;
 @property (nonatomic, assign) BOOL hasReportedInitialLoad;
 @property (nonatomic, assign) BOOL hasProtectedScreen;
+@property (nonatomic, assign) BOOL hasRetriedWebContentTermination;
+@property (nonatomic, strong, nullable) SKProductsRequest *productsRequest;
+@property (nonatomic, strong, nullable) SKProduct *purchaseProduct;
+@property (nonatomic, assign) BOOL hasRegisteredPaymentObserver;
+
++ (WKProcessPool *)sharedProcessPool;
 
 @end
 
 @implementation YGWebContainerViewController
+
++ (void)warmUpWebEngine {
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        WKWebViewConfiguration *configuration = [[WKWebViewConfiguration alloc] init];
+        configuration.processPool = [self sharedProcessPool];
+        configuration.websiteDataStore = WKWebsiteDataStore.defaultDataStore;
+        YGWebContainerWarmWebView = [[WKWebView alloc] initWithFrame:CGRectMake(0.0, 0.0, 1.0, 1.0) configuration:configuration];
+        [YGWebContainerWarmWebView loadHTMLString:@"<html><body></body></html>" baseURL:nil];
+    });
+}
 
 - (instancetype)init {
     return [self initWithH5Url:nil];
@@ -61,6 +83,12 @@ static NSInteger const YGWebContainerTextMaskStep = 11;
 }
 
 - (void)dealloc {
+    [self.productsRequest cancel];
+    self.productsRequest.delegate = nil;
+    if (self.hasRegisteredPaymentObserver) {
+        [[SKPaymentQueue defaultQueue] removeTransactionObserver:self];
+    }
+
     WKUserContentController *userContentController = self.webView.configuration.userContentController;
     [userContentController removeScriptMessageHandlerForName:@"rechargePay"];
     [userContentController removeScriptMessageHandlerForName:@"Close"];
@@ -69,6 +97,7 @@ static NSInteger const YGWebContainerTextMaskStep = 11;
 
 - (void)viewDidLoad {
     [super viewDidLoad];
+    [self registerPaymentObserverIfNeeded];
     [self setupUI];
     [self loadH5];
 }
@@ -131,6 +160,8 @@ static NSInteger const YGWebContainerTextMaskStep = 11;
 - (WKWebView *)webView {
     if (_webView == nil) {
         WKWebViewConfiguration *configuration = [[WKWebViewConfiguration alloc] init];
+        configuration.processPool = [self.class sharedProcessPool];
+        configuration.websiteDataStore = WKWebsiteDataStore.defaultDataStore;
         WKUserContentController *userContentController = [[WKUserContentController alloc] init];
         [userContentController addScriptMessageHandler:[[YGWebContainerWeakScriptMessageHandler alloc] initWithDelegate:self] name:@"rechargePay"];
         [userContentController addScriptMessageHandler:[[YGWebContainerWeakScriptMessageHandler alloc] initWithDelegate:self] name:@"Close"];
@@ -162,6 +193,15 @@ static NSInteger const YGWebContainerTextMaskStep = 11;
     return _webView;
 }
 
++ (WKProcessPool *)sharedProcessPool {
+    static WKProcessPool *processPool = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        processPool = [[WKProcessPool alloc] init];
+    });
+    return processPool;
+}
+
 - (UIScreenEdgePanGestureRecognizer *)edgeBackGestureRecognizer {
     if (_edgeBackGestureRecognizer == nil) {
         _edgeBackGestureRecognizer = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleEdgeBackGesture:)];
@@ -176,23 +216,53 @@ static NSInteger const YGWebContainerTextMaskStep = 11;
 - (void)loadH5 {
     NSURL *URL = [self makeH5URL];
     if (URL == nil) {
+        NSLog(@"H5 URL is nil.");
         [self reportInitialLoadIfNeededWithSuccess:NO];
         return;
     }
 
+    NSLog(@"Loading H5 URL: %@", URL.absoluteString);
     NSURLRequest *request = [NSURLRequest requestWithURL:URL];
     [self.webView loadRequest:request];
 }
 
 - (nullable NSURL *)makeH5URL {
-    NSString *URLString = self.h5Url;
-    if (URLString.length == 0) {
-        URLString = [NSUserDefaults.standardUserDefaults stringForKey:YGWebContainerUserDefaultsHostUrlKey];
-    }
+    NSString *URLString = self.h5Url ?: [self assembledGatewayURLString];
     if (URLString.length == 0) {
         return nil;
     }
     return [NSURL URLWithString:URLString];
+}
+
+- (nullable NSString *)assembledGatewayURLString {
+    NSString *token = [YGSecretCodec accessTicket];
+    NSString *baseURLString = [NSUserDefaults.standardUserDefaults stringForKey:YGRootLandingURLDefaultsKey];
+    if (baseURLString.length == 0 || token.length == 0) {
+        return nil;
+    }
+
+    long long timestamp = (long long)(NSDate.date.timeIntervalSince1970 * 1000.0);
+    NSDictionary<NSString *, id> *openParams = @{
+        @"token": token,
+        @"timestamp": @(timestamp)
+    };
+
+    NSData *jsonData = [NSJSONSerialization dataWithJSONObject:openParams options:0 error:nil];
+    if (jsonData.length == 0) {
+        return nil;
+    }
+
+    NSString *jsonString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
+    if (jsonString.length == 0) {
+        return nil;
+    }
+
+    NSString *encryptedParams = [YGSecretCodec sealPayloadText:jsonString error:nil];
+    if (encryptedParams.length == 0) {
+        return nil;
+    }
+
+    return [NSString stringWithFormat:@"%@?openParams=%@&appId=%@", baseURLString, encryptedParams, [YGSecretCodec bundleChannel]];
 }
 
 - (void)reportInitialLoadIfNeededWithSuccess:(BOOL)success {
@@ -217,7 +287,12 @@ static NSInteger const YGWebContainerTextMaskStep = 11;
                             state,
                             escapedURLString];
 
+    __weak typeof(self) weakSelf = self;
     dispatch_async(dispatch_get_main_queue(), ^{
+        __strong typeof(weakSelf) self = weakSelf;
+        if (!self) {
+            return;
+        }
         [self.webView evaluateJavaScript:javaScript completionHandler:nil];
     });
 }
@@ -247,16 +322,24 @@ static NSInteger const YGWebContainerTextMaskStep = 11;
 
 - (void)closeController {
     if (self.onClose) {
+        [self prepareWebViewForClose];
         self.onClose();
         return;
     }
-
+    [[NSUserDefaults standardUserDefaults] setBool:NO forKey: @"yaga.directLogin.didCallGotoLogin"];
+    [self prepareWebViewForClose];
     if (self.navigationController != nil) {
         [self.navigationController popViewControllerAnimated:YES];
         return;
     }
 
     [self dismissViewControllerAnimated:YES completion:nil];
+}
+
+- (void)prepareWebViewForClose {
+    [self.webView stopLoading];
+    self.webView.navigationDelegate = nil;
+    self.webView.UIDelegate = nil;
 }
 
 #pragma mark - Native Services
@@ -267,27 +350,44 @@ static NSInteger const YGWebContainerTextMaskStep = 11;
     }
 
     self.hasProtectedScreen = YES;
-    id screenShield = [self sharedInstanceForClassName:@"ScreenShield"];
-    if ([screenShield respondsToSelector:NSSelectorFromString(@"protectFromScreenRecording")]) {
-        [screenShield performSelector:NSSelectorFromString(@"protectFromScreenRecording")];
-    }
+    id screenShield = [self sharedInstanceForClassName:@"YGVisualPrivacyGuard"];
+    [self invokeSelector:NSSelectorFromString(@"protectFromScreenRecording") onTarget:screenShield object:nil];
+    [self invokeSelector:NSSelectorFromString(@"protectView:") onTarget:screenShield object:self.view];
 }
 
 - (void)requestPushAuthorizationIfNeeded {
-    id pushService = [self sharedInstanceForClassName:@"PushNotificationService"];
-    SEL selector = NSSelectorFromString(@"requestAuthorizationIfNeeded");
-    if ([pushService respondsToSelector:selector]) {
-        [pushService performSelector:selector];
+    id<UIApplicationDelegate> delegate = UIApplication.sharedApplication.delegate;
+    if (![delegate isKindOfClass:AppDelegate.class]) {
+        return;
     }
+
+    [(AppDelegate *)delegate registerRemoteNotificationsIfNeeded];
 }
 
 - (void)reportOpenWebTime:(NSInteger)loadingTime {
-    id routeManager = [self sharedInstanceForClassName:@"RouteManager"];
-    SEL selector = NSSelectorFromString(@"openWebTime:");
+    id routeManager = [self sharedInstanceForClassName:@"YGRootManager"];
+    SEL selector = NSSelectorFromString(@"markWebVisitAt:");
     NSString *timeString = [NSString stringWithFormat:@"%ld", (long)loadingTime];
-    if ([routeManager respondsToSelector:selector]) {
-        [routeManager performSelector:selector withObject:timeString];
+    [self invokeSelector:selector onTarget:routeManager object:timeString];
+}
+
+- (void)invokeSelector:(SEL)selector onTarget:(id)target object:(nullable id)object {
+    if (target == nil || selector == NULL || ![target respondsToSelector:selector]) {
+        return;
     }
+
+    NSMethodSignature *signature = [target methodSignatureForSelector:selector];
+    if (signature == nil) {
+        return;
+    }
+
+    NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:signature];
+    invocation.target = target;
+    invocation.selector = selector;
+    if (object != nil && signature.numberOfArguments > 2) {
+        [invocation setArgument:&object atIndex:2];
+    }
+    [invocation invoke];
 }
 
 - (nullable id)sharedInstanceForClassName:(NSString *)className {
@@ -312,6 +412,14 @@ static NSInteger const YGWebContainerTextMaskStep = 11;
 #pragma clang diagnostic pop
     }
 
+    SEL controlHubSelector = NSSelectorFromString(@"controlHub");
+    if ([cls respondsToSelector:controlHubSelector]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+        return [cls performSelector:controlHubSelector];
+#pragma clang diagnostic pop
+    }
+
     return nil;
 }
 
@@ -322,59 +430,125 @@ static NSInteger const YGWebContainerTextMaskStep = 11;
         return;
     }
 
+    if (self.batchNo.length == 0) {
+        [self showToast:@"Product identifier is empty."];
+        return;
+    }
+
+    if (![SKPaymentQueue canMakePayments]) {
+        [self showToast:@"In-App Purchase is unavailable."];
+        return;
+    }
+
     self.isPurchasing = YES;
     self.view.userInteractionEnabled = NO;
     [self setLoadingVisible:YES];
 
-    [self performRuntimePurchaseIfAvailableWithCompletion:^(BOOL handled, BOOL success) {
-        if (!handled) {
-            [self resetPurchasingState];
-            [self showToast:@"Purchase fail."];
-            return;
-        }
+    [self.productsRequest cancel];
+    self.productsRequest.delegate = nil;
+    self.purchaseProduct = nil;
 
-        if (!success) {
-            [self resetPurchasingState];
-        }
-    }];
+    self.productsRequest = [[SKProductsRequest alloc] initWithProductIdentifiers:[NSSet setWithObject:self.batchNo]];
+    self.productsRequest.delegate = self;
+    [self.productsRequest start];
 }
 
-- (void)performRuntimePurchaseIfAvailableWithCompletion:(void (^)(BOOL handled, BOOL success))completion {
-    if (self.batchNo.length == 0) {
-        completion(NO, NO);
+- (void)registerPaymentObserverIfNeeded {
+    if (self.hasRegisteredPaymentObserver) {
         return;
     }
 
-    id iapManager = [self sharedInstanceForClassName:@"YGIAPManager"];
-    SEL selector = NSSelectorFromString(@"purchaseProductWithIdentifier:completion:");
-    if (![iapManager respondsToSelector:selector]) {
-        completion(NO, NO);
-        return;
-    }
+    self.hasRegisteredPaymentObserver = YES;
+    [[SKPaymentQueue defaultQueue] addTransactionObserver:self];
+}
 
-    __weak typeof(self) weakSelf = self;
-    void (^purchaseCompletion)(BOOL, NSString *) = [^(BOOL success, NSString *message) {
-        __strong typeof(weakSelf) self = weakSelf;
-        if (self == nil) {
-            completion(YES, success);
-            return;
-        }
+- (void)productsRequest:(SKProductsRequest *)request didReceiveResponse:(SKProductsResponse *)response {
+    self.productsRequest.delegate = nil;
+    self.productsRequest = nil;
 
+    SKProduct *product = response.products.firstObject;
+    if (product == nil) {
         [self resetPurchasingState];
-        if (!success) {
-            [self showToast:message.length > 0 ? message : @"Purchase fail."];
-        }
-        completion(YES, success);
-    } copy];
+        [self showToast:@"Product is unavailable."];
+        return;
+    }
 
-    NSMethodSignature *signature = [iapManager methodSignatureForSelector:selector];
-    NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:signature];
-    invocation.target = iapManager;
-    invocation.selector = selector;
-    NSString *productIdentifier = self.batchNo;
-    [invocation setArgument:&productIdentifier atIndex:2];
-    [invocation setArgument:&purchaseCompletion atIndex:3];
-    [invocation invoke];
+    self.purchaseProduct = product;
+    SKMutablePayment *payment = [SKMutablePayment paymentWithProduct:product];
+    payment.applicationUsername = self.orderCode ?: @"";
+    [[SKPaymentQueue defaultQueue] addPayment:payment];
+}
+
+- (void)request:(SKRequest *)request didFailWithError:(NSError *)error {
+    if (request == self.productsRequest) {
+        self.productsRequest.delegate = nil;
+        self.productsRequest = nil;
+    }
+
+    [self resetPurchasingState];
+    [self showToast:error.localizedDescription ?: @"Unable to request product."];
+}
+
+- (void)paymentQueue:(SKPaymentQueue *)queue updatedTransactions:(NSArray<SKPaymentTransaction *> *)transactions {
+    for (SKPaymentTransaction *transaction in transactions) {
+        switch (transaction.transactionState) {
+            case SKPaymentTransactionStatePurchased:
+                [self handlePurchasedTransaction:transaction];
+                break;
+            case SKPaymentTransactionStateFailed:
+                [self handleFailedTransaction:transaction];
+                break;
+            case SKPaymentTransactionStateRestored:
+                [queue finishTransaction:transaction];
+                break;
+            case SKPaymentTransactionStatePurchasing:
+            case SKPaymentTransactionStateDeferred:
+                break;
+        }
+    }
+}
+
+- (void)handlePurchasedTransaction:(SKPaymentTransaction *)transaction {
+    NSString *transactionId = transaction.transactionIdentifier ?: @"";
+    NSString *receipt = [self appStoreReceiptText];
+    NSNumber *revenue = self.purchaseProduct.price;
+    NSString *currency = [self currencyCodeForProduct:self.purchaseProduct];
+
+    [[SKPaymentQueue defaultQueue] finishTransaction:transaction];
+    [self finishPurchasingWithTransactionId:transactionId
+                                    receipt:receipt
+                                    revenue:revenue
+                                   currency:currency];
+}
+
+- (void)handleFailedTransaction:(SKPaymentTransaction *)transaction {
+    NSError *error = transaction.error;
+    [[SKPaymentQueue defaultQueue] finishTransaction:transaction];
+    [self resetPurchasingState];
+    if (error.code == SKErrorPaymentCancelled) {
+        [self showToast:@"Purchase cancelled."];
+        return;
+    }
+
+    [self showToast:error.localizedDescription ?: @"Purchase failed."];
+}
+
+- (NSString *)appStoreReceiptText {
+    NSURL *receiptURL = NSBundle.mainBundle.appStoreReceiptURL;
+    NSData *receiptData = receiptURL ? [NSData dataWithContentsOfURL:receiptURL] : nil;
+    if (receiptData.length == 0) {
+        return @"";
+    }
+
+    return [receiptData base64EncodedStringWithOptions:0] ?: @"";
+}
+
+- (nullable NSString *)currencyCodeForProduct:(nullable SKProduct *)product {
+    if (product == nil) {
+        return nil;
+    }
+
+    return [product.priceLocale objectForKey:NSLocaleCurrencyCode];
 }
 
 - (void)finishPurchasingWithTransactionId:(NSString *)transactionId
@@ -382,6 +556,11 @@ static NSInteger const YGWebContainerTextMaskStep = 11;
                                   revenue:(nullable NSNumber *)revenue
                                  currency:(nullable NSString *)currency {
     [self resetPurchasingState];
+    [[YGRootManager controlHub] submitReceiptWithTrace:transactionId ?: @""
+                                             orderTag:self.orderCode ?: @""
+                                              receipt:receipt ?: @""
+                                              revenue:revenue
+                                             currency:currency];
 
     id walletService = [self sharedInstanceForClassName:@"WalletPaymentService"];
     SEL selector = NSSelectorFromString(@"handleRechargeCallbackWithBatchNo:orderCode:receipt:revenue:currency:");
@@ -407,29 +586,12 @@ static NSInteger const YGWebContainerTextMaskStep = 11;
 }
 
 - (void)setLoadingVisible:(BOOL)visible {
-    Class loadingViewClass = NSClassFromString(@"LoadingView");
     if (visible) {
-        SEL selector = NSSelectorFromString(@"showIn:message:duration:");
-        if ([loadingViewClass respondsToSelector:selector]) {
-            NSString *message = @"Loading...";
-            NSTimeInterval duration = 60.0;
-            NSMethodSignature *signature = [loadingViewClass methodSignatureForSelector:selector];
-            NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:signature];
-            invocation.target = loadingViewClass;
-            invocation.selector = selector;
-            UIView *view = self.view;
-            [invocation setArgument:&view atIndex:2];
-            [invocation setArgument:&message atIndex:3];
-            [invocation setArgument:&duration atIndex:4];
-            [invocation invoke];
-        }
+        [YGHUDHelper showLoadingAddedTo:self.view text:@"Purchasing..."];
         return;
     }
 
-    SEL selector = NSSelectorFromString(@"hideCurrent");
-    if ([loadingViewClass respondsToSelector:selector]) {
-        [loadingViewClass performSelector:selector];
-    }
+    [YGHUDHelper hideLoadingForView:self.view];
 }
 
 - (void)showToast:(NSString *)message {
@@ -461,6 +623,8 @@ static NSInteger const YGWebContainerTextMaskStep = 11;
 }
 
 - (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
+    self.hasRetriedWebContentTermination = NO;
+
     NSInteger loadingTime = 0;
     if (self.loadingStartTime != nil) {
         loadingTime = (NSInteger)([[NSDate date] timeIntervalSinceDate:self.loadingStartTime] * 1000.0);
@@ -468,17 +632,31 @@ static NSInteger const YGWebContainerTextMaskStep = 11;
 
     NSLog(@"loadTime: %ld ms", (long)loadingTime);
     [self reportInitialLoadIfNeededWithSuccess:YES];
+    [[NSUserDefaults standardUserDefaults] setBool:YES forKey: @"yaga.directLogin.didCallGotoLogin"];
     [self reportOpenWebTime:loadingTime];
 }
 
 - (void)webView:(WKWebView *)webView didFailNavigation:(WKNavigation *)navigation withError:(NSError *)error {
     NSLog(@"H5 load failed: %@", error.localizedDescription);
+    [self showToast:error.localizedDescription ?: @"Load failed."];
     [self reportInitialLoadIfNeededWithSuccess:NO];
 }
 
 - (void)webView:(WKWebView *)webView didFailProvisionalNavigation:(WKNavigation *)navigation withError:(NSError *)error {
     NSLog(@"H5 provisional load failed: %@", error.localizedDescription);
+    [self showToast:error.localizedDescription ?: @"Load failed."];
     [self reportInitialLoadIfNeededWithSuccess:NO];
+}
+
+- (void)webViewWebContentProcessDidTerminate:(WKWebView *)webView {
+    NSLog(@"H5 WebContent process terminated.");
+    if (self.hasRetriedWebContentTermination) {
+        [self reportInitialLoadIfNeededWithSuccess:NO];
+        return;
+    }
+
+    self.hasRetriedWebContentTermination = YES;
+    [webView reload];
 }
 
 - (void)webView:(WKWebView *)webView
@@ -493,7 +671,12 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
 
     NSSet<NSString *> *allowedSchemes = [NSSet setWithObjects:@"http", @"https", @"file", @"about", nil];
     if (![allowedSchemes containsObject:scheme]) {
+        __weak typeof(self) weakSelf = self;
         [UIApplication.sharedApplication openURL:URL options:@{} completionHandler:^(BOOL success) {
+            __strong typeof(weakSelf) self = weakSelf;
+            if (!self) {
+                return;
+            }
             [self notifyNativeOpenStateWithSuccess:success URL:URL];
         }];
         decisionHandler(WKNavigationActionPolicyCancel);
@@ -565,7 +748,12 @@ decisionHandler:(void (^)(WKPermissionDecision decision))decisionHandler API_AVA
         NSString *URLString = [body[@"url"] isKindOfClass:NSString.class] ? body[@"url"] : nil;
         NSURL *URL = [NSURL URLWithString:URLString ?: @""];
         if (URL != nil) {
+            __weak typeof(self) weakSelf = self;
             [UIApplication.sharedApplication openURL:URL options:@{} completionHandler:^(BOOL success) {
+                __strong typeof(weakSelf) self = weakSelf;
+                if (!self) {
+                    return;
+                }
                 [self notifyNativeOpenStateWithSuccess:success URL:URL];
             }];
         }

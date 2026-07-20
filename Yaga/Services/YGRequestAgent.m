@@ -118,6 +118,7 @@ static NSString *YGWireVerbToken(YGWireVerb verb) {
                                                 headerFields:headerFields
                                                        error:&buildError];
     if (preparedRequest == nil) {
+        [self logRawEndpoint:endpoint response:nil data:nil error:buildError];
         [self notifyData:nil error:buildError finish:finish];
         return nil;
     }
@@ -126,6 +127,7 @@ static NSString *YGWireVerbToken(YGWireVerb verb) {
                                                 completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
         NSError *resultError = nil;
         NSData *validData = [self verifiedPayload:data response:response error:error resultError:&resultError];
+        [self logRawEndpoint:endpoint response:response data:validData ?: data error:resultError ?: error];
         [self notifyData:validData error:resultError finish:finish];
     }];
     [task resume];
@@ -225,7 +227,7 @@ static NSString *YGWireVerbToken(YGWireVerb verb) {
     }
 
     NSString *jsonText = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding] ?: @"";
-    NSString *sealedText = [YGSecretCodec sealedTextFromPlainText:jsonText error:error];
+    NSString *sealedText = [YGSecretCodec sealPayloadText:jsonText error:error];
     if (sealedText.length == 0) {
         return nil;
     }
@@ -281,6 +283,40 @@ static NSString *YGWireVerbToken(YGWireVerb verb) {
     }
 
     return payload;
+}
+
+- (void)logRawEndpoint:(NSString *)endpoint
+              response:(nullable NSURLResponse *)response
+                  data:(nullable NSData *)data
+                 error:(nullable NSError *)error {
+    NSInteger statusCode = 0;
+    if ([response isKindOfClass:NSHTTPURLResponse.class]) {
+        statusCode = ((NSHTTPURLResponse *)response).statusCode;
+    }
+
+    if (error != nil) {
+        NSLog(@"[YGRequestAgent] Raw request failed. endpoint=%@ status=%ld domain=%@ code=%ld message=%@",
+              endpoint ?: @"",
+              (long)statusCode,
+              error.domain,
+              (long)error.code,
+              error.localizedDescription ?: @"");
+        if (data.length > 0) {
+            NSString *responseText = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] ?: @"<non-utf8 data>";
+            NSLog(@"[YGRequestAgent] Raw failure body. endpoint=%@ length=%lu body=%@",
+                  endpoint ?: @"",
+                  (unsigned long)data.length,
+                  responseText);
+        }
+        return;
+    }
+
+    NSString *responseText = data.length > 0 ? ([[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] ?: @"<non-utf8 data>") : @"";
+    NSLog(@"[YGRequestAgent] Raw request succeeded. endpoint=%@ status=%ld length=%lu body=%@",
+          endpoint ?: @"",
+          (long)statusCode,
+          (unsigned long)data.length,
+          responseText);
 }
 
 - (nullable NSString *)remoteMessageFromPayload:(NSData *)payload {

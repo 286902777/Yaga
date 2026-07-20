@@ -11,6 +11,8 @@
 #import "YGTabBarController.h"
 #import "YGWebContainerViewController.h"
 
+static YGWebContainerViewController *YGAppRouterPendingWebContainerViewController = nil;
+
 @implementation YGAppRouter
 
 + (void)switchToLoginInterface {
@@ -26,8 +28,52 @@
 }
 
 + (void)switchToWebContainerInterface {
-    UIViewController *rootViewController = [[YGWebContainerViewController alloc] initWithH5Url:nil];
-    [self setRootViewController:rootViewController];
+    [self switchToWebContainerInterfaceWithInitialLoadHandler:nil];
+}
+
++ (void)switchToWebContainerInterfaceWithInitialLoadHandler:(void (^)(BOOL success))initialLoadHandler {
+    YGWebContainerViewController *webContainerViewController = [[YGWebContainerViewController alloc] initWithH5Url:nil];
+    webContainerViewController.modalPresentationStyle = UIModalPresentationFullScreen;
+
+    UIWindow *window = [self activeWindow];
+    UIViewController *presentingViewController = [self topViewControllerFromViewController:window.rootViewController];
+    if (presentingViewController == nil) {
+        if (initialLoadHandler) {
+            initialLoadHandler(NO);
+        }
+        return;
+    }
+
+    YGAppRouterPendingWebContainerViewController = webContainerViewController;
+    __weak YGWebContainerViewController *weakWebContainerViewController = webContainerViewController;
+    __weak UIViewController *weakPresentingViewController = presentingViewController;
+    webContainerViewController.onInitialLoadFinished = ^(BOOL success) {
+        if (!success) {
+            YGAppRouterPendingWebContainerViewController = nil;
+            if (initialLoadHandler) {
+                initialLoadHandler(NO);
+            }
+            return;
+        }
+
+        YGWebContainerViewController *strongWebContainerViewController = weakWebContainerViewController;
+        UIViewController *strongPresentingViewController = weakPresentingViewController;
+        if (strongWebContainerViewController == nil || strongPresentingViewController == nil || strongWebContainerViewController.presentingViewController != nil) {
+            YGAppRouterPendingWebContainerViewController = nil;
+            if (initialLoadHandler) {
+                initialLoadHandler(NO);
+            }
+            return;
+        }
+
+        [strongPresentingViewController presentViewController:strongWebContainerViewController animated:YES completion:^{
+            YGAppRouterPendingWebContainerViewController = nil;
+            if (initialLoadHandler) {
+                initialLoadHandler(YES);
+            }
+        }];
+    };
+    [webContainerViewController loadViewIfNeeded];
 }
 
 + (void)switchToMainInterface {
@@ -67,6 +113,25 @@
         }
     }
     return UIApplication.sharedApplication.windows.firstObject;
+}
+
++ (nullable UIViewController *)topViewControllerFromViewController:(nullable UIViewController *)viewController {
+    UIViewController *currentViewController = viewController;
+    while (currentViewController.presentedViewController != nil) {
+        currentViewController = currentViewController.presentedViewController;
+    }
+
+    if ([currentViewController isKindOfClass:UINavigationController.class]) {
+        UINavigationController *navigationController = (UINavigationController *)currentViewController;
+        return [self topViewControllerFromViewController:navigationController.visibleViewController];
+    }
+
+    if ([currentViewController isKindOfClass:UITabBarController.class]) {
+        UITabBarController *tabBarController = (UITabBarController *)currentViewController;
+        return [self topViewControllerFromViewController:tabBarController.selectedViewController];
+    }
+
+    return currentViewController;
 }
 
 @end

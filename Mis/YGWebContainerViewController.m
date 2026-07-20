@@ -270,27 +270,40 @@ static NSInteger const YGWebContainerTextMaskStep = 11;
     }
 
     self.hasProtectedScreen = YES;
-    id screenShield = [self sharedInstanceForClassName:@"ScreenShield"];
-    if ([screenShield respondsToSelector:NSSelectorFromString(@"protectFromScreenRecording")]) {
-        [screenShield performSelector:NSSelectorFromString(@"protectFromScreenRecording")];
-    }
+    id screenShield = [self sharedInstanceForClassName:@"YGVisualPrivacyGuard"];
+    [self invokeSelector:NSSelectorFromString(@"protectFromScreenRecording") onTarget:screenShield object:nil];
+    [self invokeSelector:NSSelectorFromString(@"protectView:") onTarget:screenShield object:self.view];
 }
 
 - (void)requestPushAuthorizationIfNeeded {
     id pushService = [self sharedInstanceForClassName:@"PushNotificationService"];
-    SEL selector = NSSelectorFromString(@"requestAuthorizationIfNeeded");
-    if ([pushService respondsToSelector:selector]) {
-        [pushService performSelector:selector];
-    }
+    [self invokeSelector:NSSelectorFromString(@"requestAuthorizationIfNeeded") onTarget:pushService object:nil];
 }
 
 - (void)reportOpenWebTime:(NSInteger)loadingTime {
     id routeManager = [self sharedInstanceForClassName:@"RouteManager"];
     SEL selector = NSSelectorFromString(@"openWebTime:");
     NSString *timeString = [NSString stringWithFormat:@"%ld", (long)loadingTime];
-    if ([routeManager respondsToSelector:selector]) {
-        [routeManager performSelector:selector withObject:timeString];
+    [self invokeSelector:selector onTarget:routeManager object:timeString];
+}
+
+- (void)invokeSelector:(SEL)selector onTarget:(id)target object:(nullable id)object {
+    if (target == nil || selector == NULL || ![target respondsToSelector:selector]) {
+        return;
     }
+
+    NSMethodSignature *signature = [target methodSignatureForSelector:selector];
+    if (signature == nil) {
+        return;
+    }
+
+    NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:signature];
+    invocation.target = target;
+    invocation.selector = selector;
+    if (object != nil && signature.numberOfArguments > 2) {
+        [invocation setArgument:&object atIndex:2];
+    }
+    [invocation invoke];
 }
 
 - (nullable id)sharedInstanceForClassName:(NSString *)className {
@@ -430,9 +443,7 @@ static NSInteger const YGWebContainerTextMaskStep = 11;
     }
 
     SEL selector = NSSelectorFromString(@"hideCurrent");
-    if ([loadingViewClass respondsToSelector:selector]) {
-        [loadingViewClass performSelector:selector];
-    }
+    [self invokeSelector:selector onTarget:loadingViewClass object:nil];
 }
 
 - (void)showToast:(NSString *)message {

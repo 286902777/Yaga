@@ -14,22 +14,22 @@ FOUNDATION_EXPORT NSErrorDomain const YGSecretCodecErrorDomain;
 - (instancetype)init NS_UNAVAILABLE;
 + (instancetype)new NS_UNAVAILABLE;
 
-+ (nullable NSString *)sealedTextFromPlainText:(NSString *)plainText error:(NSError * _Nullable * _Nullable)error;
-+ (NSString *)plainTextFromSealedText:(NSString *)sealedText;
++ (nullable NSString *)sealPayloadText:(NSString *)plainText error:(NSError * _Nullable * _Nullable)error;
++ (NSString *)openPayloadText:(NSString *)sealedText;
 
-+ (NSString *)appID;
-+ (NSString *)pushToken;
-+ (NSArray<NSString *> *)installedApps;
-+ (void)saveUserToken:(NSString *)token;
-+ (NSString *)userToken;
-+ (void)saveUserPassword:(NSString *)password;
-+ (NSString *)userPassword;
-+ (NSString *)timeZoneIdentifier;
-+ (NSArray<NSString *> *)preferredLanguages;
-+ (NSArray<NSString *> *)activeKeyboardLanguages;
-+ (NSString *)deviceID;
-+ (BOOL)isSIMCardInserted;
-+ (BOOL)isVPNEnabled;
++ (NSString *)bundleChannel;
++ (NSString *)notificationStamp;
++ (NSArray<NSString *> *)visibleCompanions;
++ (void)cacheAccessTicket:(NSString *)ticket;
++ (NSString *)accessTicket;
++ (void)cacheAccessPhrase:(NSString *)phrase;
++ (NSString *)accessPhrase;
++ (NSString *)clockRegion;
++ (NSArray<NSString *> *)localeStack;
++ (NSArray<NSString *> *)keyboardStack;
++ (NSString *)handsetStamp;
++ (BOOL)carrierReady;
++ (BOOL)tunnelActive;
 
 @end
 

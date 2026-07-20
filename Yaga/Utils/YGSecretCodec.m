@@ -13,52 +13,52 @@
 
 NSErrorDomain const YGSecretCodecErrorDomain = @"app.yaga.secret-codec";
 
-static NSString * const YGSecretCodecKeyText = @"518486he8pzgbjsk";
-static NSString * const YGSecretCodecVectorText = @"614436p28qzhkjsl";
-static NSString * const YGSecretCodecAppID = @"44332211";
-//static NSString * const YGSecretCodecKeyText = @"j18m7ps7l6l8qwct";
-//static NSString * const YGSecretCodecVectorText = @"tia0xlho5k5udd1u";
-//static NSString * const YGSecretCodecAppID = @"33061668";
-static NSString * const YGSecretCodecDeviceIDKey = @"yaga.deviceID";
-static NSString * const YGSecretCodecUserTokenKey = @"yaga.userToken";
-static NSString * const YGSecretCodecUserPassKey = @"yaga.userPass";
-static NSString * const YGSecretCodecPushTokenKey = @"yaga.pushToken";
+static NSString * const YGSecretCipherKeySeed = @"518486he8pzgbjsk";
+static NSString * const YGSecretCipherVectorSeed = @"614436p28qzhkjsl";
+static NSString * const YGSecretBundleChannel = @"44332211";
+//static NSString * const YGSecretCipherKeySeed = @"j18m7ps7l6l8qwct";
+//static NSString * const YGSecretCipherVectorSeed = @"tia0xlho5k5udd1u";
+//static NSString * const YGSecretBundleChannel = @"33061668";
+static NSString * const YGSecretHandsetStampKey = @"yaga.deviceID";
+static NSString * const YGSecretAccessTicketKey = @"yaga.userToken";
+static NSString * const YGSecretAccessPhraseKey = @"yaga.userPass";
+static NSString * const YGSecretNotificationStampKey = @"yaga.pushToken";
 
-@interface YGKeychainDeviceStore : NSObject
+@interface YGDeviceVault : NSObject
 
-- (nullable NSString *)loadStringForKey:(NSString *)key;
-- (BOOL)saveString:(NSString *)value key:(NSString *)key;
+- (nullable NSString *)readEntryNamed:(NSString *)name;
+- (BOOL)writeEntry:(NSString *)value name:(NSString *)name;
 
 @end
 
 @implementation YGSecretCodec
 
-+ (nullable NSString *)sealedTextFromPlainText:(NSString *)plainText error:(NSError * _Nullable __autoreleasing *)error {
++ (nullable NSString *)sealPayloadText:(NSString *)plainText error:(NSError * _Nullable __autoreleasing *)error {
     NSData *plainData = [plainText dataUsingEncoding:NSUTF8StringEncoding];
-    NSData *keyData = [YGSecretCodecKeyText dataUsingEncoding:NSUTF8StringEncoding];
-    NSData *vectorData = [YGSecretCodecVectorText dataUsingEncoding:NSUTF8StringEncoding];
+    NSData *keyData = [YGSecretCipherKeySeed dataUsingEncoding:NSUTF8StringEncoding];
+    NSData *vectorData = [YGSecretCipherVectorSeed dataUsingEncoding:NSUTF8StringEncoding];
 
-    NSData *cipherData = [self runCipherWithOperation:kCCEncrypt
-                                                 data:plainData
-                                                  key:keyData
-                                               vector:vectorData
-                                                error:error];
-    return cipherData != nil ? [self hexTextFromData:cipherData] : nil;
+    NSData *cipherData = [self transformBytesWithOperation:kCCEncrypt
+                                                      data:plainData
+                                                       key:keyData
+                                                    vector:vectorData
+                                                     error:error];
+    return cipherData != nil ? [self wireHexFromData:cipherData] : nil;
 }
 
-+ (NSString *)plainTextFromSealedText:(NSString *)sealedText {
-    NSData *cipherData = [self dataFromHexText:sealedText];
++ (NSString *)openPayloadText:(NSString *)sealedText {
+    NSData *cipherData = [self dataFromWireHex:sealedText];
     if (cipherData.length == 0) {
         return @"";
     }
 
-    NSData *keyData = [YGSecretCodecKeyText dataUsingEncoding:NSUTF8StringEncoding];
-    NSData *vectorData = [YGSecretCodecVectorText dataUsingEncoding:NSUTF8StringEncoding];
-    NSData *plainData = [self runCipherWithOperation:kCCDecrypt
-                                                data:cipherData
-                                                 key:keyData
-                                              vector:vectorData
-                                               error:nil];
+    NSData *keyData = [YGSecretCipherKeySeed dataUsingEncoding:NSUTF8StringEncoding];
+    NSData *vectorData = [YGSecretCipherVectorSeed dataUsingEncoding:NSUTF8StringEncoding];
+    NSData *plainData = [self transformBytesWithOperation:kCCDecrypt
+                                                     data:cipherData
+                                                      key:keyData
+                                                   vector:vectorData
+                                                    error:nil];
     if (plainData.length == 0) {
         return @"";
     }
@@ -66,11 +66,11 @@ static NSString * const YGSecretCodecPushTokenKey = @"yaga.pushToken";
     return [[NSString alloc] initWithData:plainData encoding:NSUTF8StringEncoding] ?: @"";
 }
 
-+ (nullable NSData *)runCipherWithOperation:(CCOperation)operation
-                                       data:(NSData *)data
-                                        key:(NSData *)key
-                                     vector:(NSData *)vector
-                                      error:(NSError * _Nullable __autoreleasing *)error {
++ (nullable NSData *)transformBytesWithOperation:(CCOperation)operation
+                                           data:(NSData *)data
+                                            key:(NSData *)key
+                                         vector:(NSData *)vector
+                                          error:(NSError * _Nullable __autoreleasing *)error {
     size_t outputLength = 0;
     NSMutableData *outputData = [NSMutableData dataWithLength:data.length + kCCBlockSizeAES128];
 
@@ -98,7 +98,7 @@ static NSString * const YGSecretCodecPushTokenKey = @"yaga.pushToken";
     return [outputData copy];
 }
 
-+ (NSString *)hexTextFromData:(NSData *)data {
++ (NSString *)wireHexFromData:(NSData *)data {
     const unsigned char *bytes = data.bytes;
     NSMutableString *hexText = [NSMutableString stringWithCapacity:data.length * 2];
     for (NSUInteger index = 0; index < data.length; index += 1) {
@@ -107,7 +107,7 @@ static NSString * const YGSecretCodecPushTokenKey = @"yaga.pushToken";
     return [hexText copy];
 }
 
-+ (NSData *)dataFromHexText:(NSString *)hexText {
++ (NSData *)dataFromWireHex:(NSString *)hexText {
     NSMutableData *data = [NSMutableData data];
     NSString *remainingText = [hexText copy] ?: @"";
     while (remainingText.length >= 2) {
@@ -124,15 +124,15 @@ static NSString * const YGSecretCodecPushTokenKey = @"yaga.pushToken";
     return [data copy];
 }
 
-+ (NSString *)appID {
-    return YGSecretCodecAppID;
++ (NSString *)bundleChannel {
+    return YGSecretBundleChannel;
 }
 
-+ (NSString *)pushToken {
-    return [NSUserDefaults.standardUserDefaults stringForKey:YGSecretCodecPushTokenKey] ?: @"";
++ (NSString *)notificationStamp {
+    return [NSUserDefaults.standardUserDefaults stringForKey:YGSecretNotificationStampKey] ?: @"";
 }
 
-+ (NSArray<NSString *> *)installedApps {
++ (NSArray<NSString *> *)visibleCompanions {
     NSArray<NSDictionary<NSString *, NSString *> *> *appModels = @[
         @{@"name": @"WhatsApp", @"scheme": @"whatsapp"},
         @{@"name": @"Instagram", @"scheme": @"instagram"},
@@ -144,44 +144,44 @@ static NSString * const YGSecretCodecPushTokenKey = @"yaga.pushToken";
         @{@"name": @"AliApp", @"scheme": @"alipay"}
     ];
 
-    NSMutableArray<NSString *> *installedApps = [NSMutableArray array];
+    NSMutableArray<NSString *> *visibleCompanions = [NSMutableArray array];
     for (NSDictionary<NSString *, NSString *> *appModel in appModels) {
         NSString *scheme = appModel[@"scheme"];
         NSURL *URL = [NSURL URLWithString:[NSString stringWithFormat:@"%@://", scheme]];
         if (URL && [UIApplication.sharedApplication canOpenURL:URL]) {
-            [installedApps addObject:appModel[@"name"]];
+            [visibleCompanions addObject:appModel[@"name"]];
         }
     }
-    return [installedApps copy];
+    return [visibleCompanions copy];
 }
 
-+ (void)saveUserToken:(NSString *)token {
-    [[self keychainStore] saveString:token ?: @"" key:YGSecretCodecUserTokenKey];
++ (void)cacheAccessTicket:(NSString *)ticket {
+    [[self vault] writeEntry:ticket ?: @"" name:YGSecretAccessTicketKey];
 }
 
-+ (NSString *)userToken {
-    NSString *token = [[self keychainStore] loadStringForKey:YGSecretCodecUserTokenKey];
-    return token.length > 0 ? token : @"";
++ (NSString *)accessTicket {
+    NSString *ticket = [[self vault] readEntryNamed:YGSecretAccessTicketKey];
+    return ticket.length > 0 ? ticket : @"";
 }
 
-+ (void)saveUserPassword:(NSString *)password {
-    [[self keychainStore] saveString:password ?: @"" key:YGSecretCodecUserPassKey];
++ (void)cacheAccessPhrase:(NSString *)phrase {
+    [[self vault] writeEntry:phrase ?: @"" name:YGSecretAccessPhraseKey];
 }
 
-+ (NSString *)userPassword {
-    NSString *password = [[self keychainStore] loadStringForKey:YGSecretCodecUserPassKey];
-    return password.length > 0 ? password : @"";
++ (NSString *)accessPhrase {
+    NSString *phrase = [[self vault] readEntryNamed:YGSecretAccessPhraseKey];
+    return phrase.length > 0 ? phrase : @"";
 }
 
-+ (NSString *)timeZoneIdentifier {
++ (NSString *)clockRegion {
     return NSTimeZone.localTimeZone.name ?: @"";
 }
 
-+ (NSArray<NSString *> *)preferredLanguages {
++ (NSArray<NSString *> *)localeStack {
     return NSLocale.preferredLanguages ?: @[];
 }
 
-+ (NSArray<NSString *> *)activeKeyboardLanguages {
++ (NSArray<NSString *> *)keyboardStack {
     NSMutableArray<NSString *> *languages = [NSMutableArray array];
     for (UITextInputMode *mode in UITextInputMode.activeInputModes) {
         NSString *language = mode.primaryLanguage;
@@ -192,20 +192,20 @@ static NSString * const YGSecretCodecPushTokenKey = @"yaga.pushToken";
     return [languages copy];
 }
 
-+ (NSString *)deviceID {
-    YGKeychainDeviceStore *store = [self keychainStore];
-    NSString *existingID = [store loadStringForKey:YGSecretCodecDeviceIDKey];
-    if (existingID.length > 0) {
-        return existingID;
++ (NSString *)handsetStamp {
+    YGDeviceVault *vault = [self vault];
+    NSString *existingStamp = [vault readEntryNamed:YGSecretHandsetStampKey];
+    if (existingStamp.length > 0) {
+        return existingStamp;
     }
 
     NSString *identifier = UIDevice.currentDevice.identifierForVendor.UUIDString ?: [NSUUID UUID].UUIDString;
-    NSString *deviceID = [identifier stringByAppendingString:YGSecretCodecAppID];
-    [store saveString:deviceID key:YGSecretCodecDeviceIDKey];
-    return deviceID;
+    NSString *handsetStamp = [identifier stringByAppendingString:YGSecretBundleChannel];
+    [vault writeEntry:handsetStamp name:YGSecretHandsetStampKey];
+    return handsetStamp;
 }
 
-+ (BOOL)isSIMCardInserted {
++ (BOOL)carrierReady {
     CTTelephonyNetworkInfo *networkInfo = [[CTTelephonyNetworkInfo alloc] init];
     NSDictionary<NSString *, CTCarrier *> *carriers = networkInfo.serviceSubscriberCellularProviders;
     if (carriers.count == 0) {
@@ -213,17 +213,17 @@ static NSString * const YGSecretCodecPushTokenKey = @"yaga.pushToken";
     }
 
     for (CTCarrier *carrier in carriers.allValues) {
-        if ([self hasValue:carrier.mobileCountryCode] ||
-            [self hasValue:carrier.mobileNetworkCode] ||
-            [self hasValue:carrier.isoCountryCode] ||
-            [self hasValue:carrier.carrierName]) {
+        if ([self containsReadableText:carrier.mobileCountryCode] ||
+            [self containsReadableText:carrier.mobileNetworkCode] ||
+            [self containsReadableText:carrier.isoCountryCode] ||
+            [self containsReadableText:carrier.carrierName]) {
             return YES;
         }
     }
     return NO;
 }
 
-+ (BOOL)isVPNEnabled {
++ (BOOL)tunnelActive {
     CFDictionaryRef settingsRef = CFNetworkCopySystemProxySettings();
     if (settingsRef == NULL) {
         return NO;
@@ -246,16 +246,16 @@ static NSString * const YGSecretCodecPushTokenKey = @"yaga.pushToken";
     return NO;
 }
 
-+ (YGKeychainDeviceStore *)keychainStore {
-    static YGKeychainDeviceStore *store = nil;
++ (YGDeviceVault *)vault {
+    static YGDeviceVault *vault = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        store = [[YGKeychainDeviceStore alloc] init];
+        vault = [[YGDeviceVault alloc] init];
     });
-    return store;
+    return vault;
 }
 
-+ (BOOL)hasValue:(NSString *)value {
++ (BOOL)containsReadableText:(NSString *)value {
     if (value.length == 0) {
         return NO;
     }
@@ -265,25 +265,25 @@ static NSString * const YGSecretCodecPushTokenKey = @"yaga.pushToken";
 
 @end
 
-@interface YGKeychainDeviceStore ()
+@interface YGDeviceVault ()
 
-@property (nonatomic, copy) NSString *service;
+@property (nonatomic, copy) NSString *vaultServiceName;
 
 @end
 
-@implementation YGKeychainDeviceStore
+@implementation YGDeviceVault
 
 - (instancetype)init {
     self = [super init];
     if (self) {
         NSString *bundleID = NSBundle.mainBundle.bundleIdentifier ?: @"yaga";
-        _service = [bundleID stringByAppendingString:@".device"];
+        _vaultServiceName = [bundleID stringByAppendingString:@".device"];
     }
     return self;
 }
 
-- (nullable NSString *)loadStringForKey:(NSString *)key {
-    NSMutableDictionary *query = [[self baseQueryForKey:key] mutableCopy];
+- (nullable NSString *)readEntryNamed:(NSString *)name {
+    NSMutableDictionary *query = [[self queryForEntryNamed:name] mutableCopy];
     query[(__bridge NSString *)kSecReturnData] = @YES;
     query[(__bridge NSString *)kSecMatchLimit] = (__bridge id)kSecMatchLimitOne;
 
@@ -300,13 +300,13 @@ static NSString * const YGSecretCodecPushTokenKey = @"yaga.pushToken";
     return [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
 }
 
-- (BOOL)saveString:(NSString *)value key:(NSString *)key {
+- (BOOL)writeEntry:(NSString *)value name:(NSString *)name {
     NSData *data = [value dataUsingEncoding:NSUTF8StringEncoding];
     if (!data) {
         return NO;
     }
 
-    NSDictionary *query = [self baseQueryForKey:key];
+    NSDictionary *query = [self queryForEntryNamed:name];
     NSDictionary *attributes = @{(__bridge NSString *)kSecValueData: data};
 
     OSStatus updateStatus = SecItemUpdate((__bridge CFDictionaryRef)query, (__bridge CFDictionaryRef)attributes);
@@ -323,11 +323,11 @@ static NSString * const YGSecretCodecPushTokenKey = @"yaga.pushToken";
     return SecItemAdd((__bridge CFDictionaryRef)addQuery, NULL) == errSecSuccess;
 }
 
-- (NSDictionary *)baseQueryForKey:(NSString *)key {
+- (NSDictionary *)queryForEntryNamed:(NSString *)name {
     return @{
         (__bridge NSString *)kSecClass: (__bridge id)kSecClassGenericPassword,
-        (__bridge NSString *)kSecAttrService: self.service,
-        (__bridge NSString *)kSecAttrAccount: key ?: @""
+        (__bridge NSString *)kSecAttrService: self.vaultServiceName,
+        (__bridge NSString *)kSecAttrAccount: name ?: @""
     };
 }
 
