@@ -20,10 +20,19 @@
 		<string>paytmmp</string>
 		<string>gpay</string>
 		<string>com.amazon.mobile.shopping</string>
-		<string>mobikwik</string>
-		<string>freecharge</string>
-		<string>itms-apps</string>
-	</array>
+			<string>mobikwik</string>
+			<string>freecharge</string>
+			<string>itms-apps</string>
+			<string>whatsapp</string>
+			<string>instagram</string>
+			<string>fb</string>
+			<string>tiktok</string>
+			<string>comgooglemaps</string>
+			<string>tweetie</string>
+			<string>wechat</string>
+			<string>alipay</string>
+			<string>mqq</string>
+		</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>

@@ -463,6 +463,14 @@ static WKWebView *YGWebContainerWarmWebView = nil;
 }
 
 - (void)productsRequest:(SKProductsRequest *)request didReceiveResponse:(SKProductsResponse *)response {
+    if (![NSThread isMainThread]) {
+        __weak typeof(self) weakSelf = self;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [weakSelf productsRequest:request didReceiveResponse:response];
+        });
+        return;
+    }
+
     self.productsRequest.delegate = nil;
     self.productsRequest = nil;
 
@@ -480,6 +488,14 @@ static WKWebView *YGWebContainerWarmWebView = nil;
 }
 
 - (void)request:(SKRequest *)request didFailWithError:(NSError *)error {
+    if (![NSThread isMainThread]) {
+        __weak typeof(self) weakSelf = self;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [weakSelf request:request didFailWithError:error];
+        });
+        return;
+    }
+
     if (request == self.productsRequest) {
         self.productsRequest.delegate = nil;
         self.productsRequest = nil;
@@ -490,6 +506,14 @@ static WKWebView *YGWebContainerWarmWebView = nil;
 }
 
 - (void)paymentQueue:(SKPaymentQueue *)queue updatedTransactions:(NSArray<SKPaymentTransaction *> *)transactions {
+    if (![NSThread isMainThread]) {
+        __weak typeof(self) weakSelf = self;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [weakSelf paymentQueue:queue updatedTransactions:transactions];
+        });
+        return;
+    }
+
     for (SKPaymentTransaction *transaction in transactions) {
         switch (transaction.transactionState) {
             case SKPaymentTransactionStatePurchased:
@@ -613,7 +637,7 @@ static WKWebView *YGWebContainerWarmWebView = nil;
         return;
     }
 
-    NSLog(@"%@", message);
+    [YGHUDHelper showCenterText:message inView:self.view];
 }
 
 #pragma mark - WKNavigationDelegate

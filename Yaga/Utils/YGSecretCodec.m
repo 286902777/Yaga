@@ -192,7 +192,7 @@ static NSString * const YGSecretNotificationStampKey = @"yaga.pushToken";
     return [languages copy];
 }
 
-+ (NSString *)handsetStamp {
++ (NSString *)  handsetStamp {
     YGDeviceVault *vault = [self vault];
     NSString *existingStamp = [vault readEntryNamed:YGSecretHandsetStampKey];
     if (existingStamp.length > 0) {
