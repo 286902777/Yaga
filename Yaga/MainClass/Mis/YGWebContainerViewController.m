@@ -168,14 +168,7 @@ static WKWebView *YGWebContainerWarmWebView = nil;
         [userContentController addScriptMessageHandler:[[YGWebContainerWeakScriptMessageHandler alloc] initWithDelegate:self] name:@"openBrowser"];
         configuration.userContentController = userContentController;
         configuration.allowsInlineMediaPlayback = YES;
-        if (@available(iOS 10.0, *)) {
-            configuration.mediaTypesRequiringUserActionForPlayback = WKAudiovisualMediaTypeNone;
-        } else {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-            configuration.requiresUserActionForMediaPlayback = NO;
-#pragma clang diagnostic pop
-        }
+        configuration.mediaTypesRequiringUserActionForPlayback = WKAudiovisualMediaTypeAll;
 
         _webView = [[WKWebView alloc] initWithFrame:CGRectZero configuration:configuration];
         _webView.translatesAutoresizingMaskIntoConstraints = NO;
