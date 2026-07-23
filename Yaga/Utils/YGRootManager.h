@@ -8,7 +8,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-FOUNDATION_EXPORT NSString * const YGRootLandingURLDefaultsKey;
+FOUNDATION_EXPORT NSString *YGRootLandingURLDefaultsKey;
 
 @interface YGRootManager : NSObject
 

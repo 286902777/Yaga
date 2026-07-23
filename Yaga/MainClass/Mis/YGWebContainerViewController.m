@@ -12,10 +12,30 @@
 #import "AppDelegate.h"
 #import <StoreKit/StoreKit.h>
 #import <WebKit/WebKit.h>
+#include <stdarg.h>
 
 static NSInteger const YGWebContainerTextMaskSeed = 37;
 static NSInteger const YGWebContainerTextMaskStep = 11;
 static WKWebView *YGWebContainerWarmWebView = nil;
+
+static NSString *YGWebContainerDecodedText(const UInt8 *bytes, NSUInteger length) {
+    NSMutableData *data = [NSMutableData dataWithLength:length];
+    UInt8 *decoded = data.mutableBytes;
+    for (NSUInteger index = 0; index < length; index += 1) {
+        NSInteger shift = YGWebContainerTextMaskSeed + (NSInteger)index * YGWebContainerTextMaskStep;
+        decoded[index] = (UInt8)((NSInteger)bytes[index] - shift);
+    }
+    return [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] ?: @"";
+}
+
+static void YGWebContainerLog(NSString *format, ...) {
+    va_list arguments;
+    va_start(arguments, format);
+    NSLogv(format, arguments);
+    va_end(arguments);
+}
+
+#define YGWebText(...) YGWebContainerDecodedText((const UInt8[]){__VA_ARGS__}, sizeof((const UInt8[]){__VA_ARGS__}))
 
 @interface YGWebContainerWeakScriptMessageHandler : NSObject <WKScriptMessageHandler>
 
@@ -42,7 +62,6 @@ static WKWebView *YGWebContainerWarmWebView = nil;
 @property (nonatomic, strong, nullable) SKProduct *purchaseProduct;
 @property (nonatomic, assign) BOOL hasRegisteredPaymentObserver;
 
-+ (WKProcessPool *)sharedProcessPool;
 
 @end
 
@@ -52,10 +71,9 @@ static WKWebView *YGWebContainerWarmWebView = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         WKWebViewConfiguration *configuration = [[WKWebViewConfiguration alloc] init];
-        configuration.processPool = [self sharedProcessPool];
-        configuration.websiteDataStore = WKWebsiteDataStore.defaultDataStore;
+        configuration.websiteDataStore = WKWebsiteDataStore.nonPersistentDataStore;
         YGWebContainerWarmWebView = [[WKWebView alloc] initWithFrame:CGRectMake(0.0, 0.0, 1.0, 1.0) configuration:configuration];
-        [YGWebContainerWarmWebView loadHTMLString:@"<html><body></body></html>" baseURL:nil];
+        [YGWebContainerWarmWebView loadHTMLString:YGWebText(97, 152, 175, 179, 189, 154, 163, 212, 236, 236, 12, 220, 229, 227, 33, 57, 57, 89, 41, 50, 48, 116, 139, 143, 153, 118) baseURL:nil];
     });
 }
 
@@ -90,9 +108,9 @@ static WKWebView *YGWebContainerWarmWebView = nil;
     }
 
     WKUserContentController *userContentController = self.webView.configuration.userContentController;
-    [userContentController removeScriptMessageHandlerForName:@"rechargePay"];
-    [userContentController removeScriptMessageHandlerForName:@"Close"];
-    [userContentController removeScriptMessageHandlerForName:@"openBrowser"];
+    [userContentController removeScriptMessageHandlerForName:YGWebText(151, 149, 158, 174, 178, 206, 206, 215, 205, 233, 12)];
+    [userContentController removeScriptMessageHandlerForName:YGWebText(104, 156, 170, 185, 182)];
+    [userContentController removeScriptMessageHandlerForName:YGWebText(148, 160, 160, 180, 147, 206, 214, 233, 240, 237, 5)];
 }
 
 - (void)viewDidLoad {
@@ -146,7 +164,7 @@ static WKWebView *YGWebContainerWarmWebView = nil;
 
 - (UIImageView *)backgroundImageView {
     if (_backgroundImageView == nil) {
-        UIImage *image = [UIImage imageNamed:@"aassdfsd"];
+        UIImage *image = [UIImage imageNamed:YGWebText(134, 145, 174, 185, 181, 194, 218, 214)];
         
         _backgroundImageView = [[UIImageView alloc] initWithImage:image];
         _backgroundImageView.translatesAutoresizingMaskIntoConstraints = NO;
@@ -160,12 +178,11 @@ static WKWebView *YGWebContainerWarmWebView = nil;
 - (WKWebView *)webView {
     if (_webView == nil) {
         WKWebViewConfiguration *configuration = [[WKWebViewConfiguration alloc] init];
-        configuration.processPool = [self.class sharedProcessPool];
-        configuration.websiteDataStore = WKWebsiteDataStore.defaultDataStore;
+        configuration.websiteDataStore = WKWebsiteDataStore.nonPersistentDataStore;
         WKUserContentController *userContentController = [[WKUserContentController alloc] init];
-        [userContentController addScriptMessageHandler:[[YGWebContainerWeakScriptMessageHandler alloc] initWithDelegate:self] name:@"rechargePay"];
-        [userContentController addScriptMessageHandler:[[YGWebContainerWeakScriptMessageHandler alloc] initWithDelegate:self] name:@"Close"];
-        [userContentController addScriptMessageHandler:[[YGWebContainerWeakScriptMessageHandler alloc] initWithDelegate:self] name:@"openBrowser"];
+        [userContentController addScriptMessageHandler:[[YGWebContainerWeakScriptMessageHandler alloc] initWithDelegate:self] name:YGWebText(151, 149, 158, 174, 178, 206, 206, 215, 205, 233, 12)];
+        [userContentController addScriptMessageHandler:[[YGWebContainerWeakScriptMessageHandler alloc] initWithDelegate:self] name:YGWebText(104, 156, 170, 185, 182)];
+        [userContentController addScriptMessageHandler:[[YGWebContainerWeakScriptMessageHandler alloc] initWithDelegate:self] name:YGWebText(148, 160, 160, 180, 147, 206, 214, 233, 240, 237, 5)];
         configuration.userContentController = userContentController;
         configuration.allowsInlineMediaPlayback = YES;
         configuration.mediaTypesRequiringUserActionForPlayback = WKAudiovisualMediaTypeAll;
@@ -186,15 +203,6 @@ static WKWebView *YGWebContainerWarmWebView = nil;
     return _webView;
 }
 
-+ (WKProcessPool *)sharedProcessPool {
-    static WKProcessPool *processPool = nil;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        processPool = [[WKProcessPool alloc] init];
-    });
-    return processPool;
-}
-
 - (UIScreenEdgePanGestureRecognizer *)edgeBackGestureRecognizer {
     if (_edgeBackGestureRecognizer == nil) {
         _edgeBackGestureRecognizer = [[UIScreenEdgePanGestureRecognizer alloc] initWithTarget:self action:@selector(handleEdgeBackGesture:)];
@@ -209,12 +217,12 @@ static WKWebView *YGWebContainerWarmWebView = nil;
 - (void)loadH5 {
     NSURL *URL = [self makeH5URL];
     if (URL == nil) {
-        NSLog(@"H5 URL is nil.");
+        YGWebContainerLog(YGWebText(109, 101, 91, 155, 163, 168, 135, 219, 240, 168, 1, 7, 21, 226));
         [self reportInitialLoadIfNeededWithSuccess:NO];
         return;
     }
 
-    NSLog(@"Loading H5 URL: %@", URL.absoluteString);
+    YGWebContainerLog(YGWebText(113, 159, 156, 170, 186, 202, 206, 146, 197, 189, 179, 243, 251, 0, 249, 234, 250, 32), URL.absoluteString);
     NSURLRequest *request = [NSURLRequest requestWithURL:URL];
     [self.webView loadRequest:request];
 }
@@ -236,8 +244,8 @@ static WKWebView *YGWebContainerWarmWebView = nil;
 
     long long timestamp = (long long)(NSDate.date.timeIntervalSince1970 * 1000.0);
     NSDictionary<NSString *, id> *openParams = @{
-        @"token": token,
-        @"timestamp": @(timestamp)
+        YGWebText(153, 159, 166, 171, 191): token,
+        YGWebText(153, 153, 168, 171, 196, 208, 200, 223, 237): @(timestamp)
     };
 
     NSData *jsonData = [NSJSONSerialization dataWithJSONObject:openParams options:0 error:nil];
@@ -255,7 +263,7 @@ static WKWebView *YGWebContainerWarmWebView = nil;
         return nil;
     }
 
-    return [NSString stringWithFormat:@"%@?openParams=%@&appId=%@", baseURLString, encryptedParams, [YGSecretCodec bundleChannel]];
+    return [NSString stringWithFormat:YGWebText(74, 112, 122, 181, 193, 193, 213, 194, 222, 250, 244, 11, 28, 241, 228, 10, 251, 65, 91, 102, 74, 112, 84, 71, 109), baseURLString, encryptedParams, [YGSecretCodec bundleChannel]];
 }
 
 - (void)reportInitialLoadIfNeededWithSuccess:(BOOL)success {
@@ -271,14 +279,9 @@ static WKWebView *YGWebContainerWarmWebView = nil;
 }
 
 - (void)notifyNativeOpenStateWithSuccess:(BOOL)success URL:(NSURL *)URL {
-    NSString *state = success ? @"success" : @"failed";
+    NSString *state = success ? YGWebText(152, 165, 158, 169, 182, 207, 218) : YGWebText(139, 145, 164, 178, 182, 192);
     NSString *escapedURLString = [self javaScriptEscapedString:URL.absoluteString ?: @""];
-    NSString *javaScript = [NSString stringWithFormat:
-                            @"window.dispatchEvent(new CustomEvent('nativeOpenState', {"
-                            @"detail: { state: '%@', url: '%@' }"
-                            @"}));",
-                            state,
-                            escapedURLString];
+    NSString *javaScript = [[YGWebText(156, 153, 169, 170, 192, 211, 149, 214, 230, 251, 3, 255, 29, 23, 39, 15, 75, 69, 89, 106, 41, 122, 124, 153, 77, 123, 184, 193, 205, 211, 220, 191, 251, 245, 9, 26, 217, 227, 53, 51, 81, 81, 105, 99, 88, 132, 132, 152, 136, 180, 172, 202, 198, 147, 163, 162, 8) stringByAppendingString:[NSString stringWithFormat:YGWebText(137, 149, 175, 167, 186, 200, 161, 146, 248, 168, 6, 18, 10, 40, 36, 4, 245, 7, 16, 54, 40, 56, 55, 151, 159, 164, 125, 110, 128, 137, 175, 161, 165, 13), state, escapedURLString]] stringByAppendingString:YGWebText(162, 89, 100, 129)];
 
     __weak typeof(self) weakSelf = self;
     dispatch_async(dispatch_get_main_queue(), ^{
@@ -319,7 +322,7 @@ static WKWebView *YGWebContainerWarmWebView = nil;
         self.onClose();
         return;
     }
-    [[NSUserDefaults standardUserDefaults] setBool:NO forKey: @"yaga.directLogin.didCallGotoLogin"];
+    [[NSUserDefaults standardUserDefaults] setBool:NO forKey:YGWebText(158, 145, 162, 167, 127, 192, 208, 228, 226, 235, 7, 234, 24, 27, 40, 56, 3, 68, 84, 90, 68, 109, 131, 142, 116, 167, 183, 189, 165, 211, 214, 227, 243)];
     [self prepareWebViewForClose];
     if (self.navigationController != nil) {
         [self.navigationController popViewControllerAnimated:YES];
@@ -333,6 +336,14 @@ static WKWebView *YGWebContainerWarmWebView = nil;
     [self.webView stopLoading];
     self.webView.navigationDelegate = nil;
     self.webView.UIDelegate = nil;
+    [self clearWebViewDataStore:self.webView.configuration.websiteDataStore];
+    [self clearWebViewDataStore:WKWebsiteDataStore.defaultDataStore];
+}
+
+- (void)clearWebViewDataStore:(WKWebsiteDataStore *)dataStore {
+    NSSet<NSString *> *dataTypes = [WKWebsiteDataStore allWebsiteDataTypes];
+    NSDate *fromDate = [NSDate dateWithTimeIntervalSince1970:0];
+    [dataStore removeDataOfTypes:dataTypes modifiedSince:fromDate completionHandler:^{}];
 }
 
 #pragma mark - Native Services
@@ -343,9 +354,9 @@ static WKWebView *YGWebContainerWarmWebView = nil;
     }
 
     self.hasProtectedScreen = YES;
-    id screenShield = [self sharedInstanceForClassName:@"YGVisualPrivacyGuard"];
-    [self invokeSelector:NSSelectorFromString(@"protectFromScreenRecording") onTarget:screenShield object:nil];
-    [self invokeSelector:NSSelectorFromString(@"protectView:") onTarget:screenShield object:self.view];
+    id screenShield = [self sharedInstanceForClassName:YGWebText(126, 119, 145, 175, 196, 209, 200, 222, 205, 250, 252, 20, 10, 23, 56, 17, 74, 65, 93, 90)];
+    [self invokeSelector:NSSelectorFromString(YGWebText(149, 162, 170, 186, 182, 191, 219, 184, 239, 247, 0, 241, 12, 38, 36, 47, 67, 50, 80, 89, 112, 126, 123, 139, 155, 159)) onTarget:screenShield object:nil];
+    [self invokeSelector:NSSelectorFromString(YGWebText(149, 162, 170, 186, 182, 191, 219, 200, 230, 237, 10, 216)) onTarget:screenShield object:self.view];
 }
 
 - (void)requestPushAuthorizationIfNeeded {
@@ -358,9 +369,9 @@ static WKWebView *YGWebContainerWarmWebView = nil;
 }
 
 - (void)reportOpenWebTime:(NSInteger)loadingTime {
-    id routeManager = [self sharedInstanceForClassName:@"YGRootManager"];
-    SEL selector = NSSelectorFromString(@"markWebVisitAt:");
-    NSString *timeString = [NSString stringWithFormat:@"%ld", (long)loadingTime];
+    id routeManager = [self sharedInstanceForClassName:YGWebText(126, 119, 141, 181, 192, 208, 180, 211, 235, 233, 250, 3, 27)];
+    SEL selector = NSSelectorFromString(YGWebText(146, 145, 173, 177, 168, 193, 201, 200, 230, 251, 252, 18, 234, 40, 249));
+    NSString *timeString = [NSString stringWithFormat:YGWebText(74, 156, 159), (long)loadingTime];
     [self invokeSelector:selector onTarget:routeManager object:timeString];
 }
 
@@ -389,7 +400,7 @@ static WKWebView *YGWebContainerWarmWebView = nil;
         return nil;
     }
 
-    SEL sharedSelector = NSSelectorFromString(@"shared");
+    SEL sharedSelector = NSSelectorFromString(YGWebText(152, 152, 156, 184, 182, 192));
     if ([cls respondsToSelector:sharedSelector]) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
@@ -397,7 +408,7 @@ static WKWebView *YGWebContainerWarmWebView = nil;
 #pragma clang diagnostic pop
     }
 
-    SEL sharedManagerSelector = NSSelectorFromString(@"sharedManager");
+    SEL sharedManagerSelector = NSSelectorFromString(YGWebText(152, 152, 156, 184, 182, 192, 180, 211, 235, 233, 250, 3, 27));
     if ([cls respondsToSelector:sharedManagerSelector]) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
@@ -405,7 +416,7 @@ static WKWebView *YGWebContainerWarmWebView = nil;
 #pragma clang diagnostic pop
     }
 
-    SEL controlHubSelector = NSSelectorFromString(@"controlHub");
+    SEL controlHubSelector = NSSelectorFromString(YGWebText(136, 159, 169, 186, 195, 203, 211, 186, 242, 234));
     if ([cls respondsToSelector:controlHubSelector]) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
@@ -424,12 +435,12 @@ static WKWebView *YGWebContainerWarmWebView = nil;
     }
 
     if (self.batchNo.length == 0) {
-        [self showToast:@"Product identifier is empty."];
+        [self showToast:YGWebText(117, 162, 170, 170, 198, 191, 219, 146, 230, 236, 248, 12, 29, 29, 37, 51, 58, 82, 11, 95, 116, 44, 124, 143, 157, 172, 188, 124)];
         return;
     }
 
     if (![SKPaymentQueue canMakePayments]) {
-        [self showToast:@"In-App Purchase is unavailable."];
+        [self showToast:YGWebText(110, 158, 104, 135, 193, 204, 135, 194, 242, 250, 246, 6, 10, 39, 36, 234, 62, 83, 11, 107, 111, 109, 141, 131, 150, 164, 164, 176, 197, 201, 157)];
         return;
     }
 
@@ -470,7 +481,7 @@ static WKWebView *YGWebContainerWarmWebView = nil;
     SKProduct *product = response.products.firstObject;
     if (product == nil) {
         [self resetPurchasingState];
-        [self showToast:@"Product is unavailable."];
+        [self showToast:YGWebText(117, 162, 170, 170, 198, 191, 219, 146, 230, 251, 179, 19, 23, 21, 53, 43, 62, 76, 76, 88, 109, 113, 69)];
         return;
     }
 
@@ -495,7 +506,7 @@ static WKWebView *YGWebContainerWarmWebView = nil;
     }
 
     [self resetPurchasingState];
-    [self showToast:error.localizedDescription ?: @"Unable to request product."];
+    [self showToast:error.localizedDescription ?: YGWebText(122, 158, 156, 168, 189, 193, 135, 230, 236, 168, 5, 3, 26, 41, 36, 61, 73, 0, 91, 104, 112, 112, 140, 133, 161, 102)];
 }
 
 - (void)paymentQueue:(SKPaymentQueue *)queue updatedTransactions:(NSArray<SKPaymentTransaction *> *)transactions {
@@ -543,11 +554,11 @@ static WKWebView *YGWebContainerWarmWebView = nil;
     [[SKPaymentQueue defaultQueue] finishTransaction:transaction];
     [self resetPurchasingState];
     if (error.code == SKErrorPaymentCancelled) {
-        [self showToast:@"Purchase cancelled."];
+        [self showToast:YGWebText(117, 165, 173, 169, 185, 189, 218, 215, 157, 235, 244, 12, 12, 25, 43, 54, 58, 68, 25)];
         return;
     }
 
-    [self showToast:error.localizedDescription ?: @"Purchase failed."];
+    [self showToast:error.localizedDescription ?: YGWebText(117, 165, 173, 169, 185, 189, 218, 215, 157, 238, 244, 7, 21, 25, 35, 248)];
 }
 
 - (NSString *)appStoreReceiptText {
@@ -579,8 +590,8 @@ static WKWebView *YGWebContainerWarmWebView = nil;
                                               revenue:revenue
                                              currency:currency];
 
-    id walletService = [self sharedInstanceForClassName:@"WalletPaymentService"];
-    SEL selector = NSSelectorFromString(@"handleRechargeCallbackWithBatchNo:orderCode:receipt:revenue:currency:");
+    id walletService = [self sharedInstanceForClassName:YGWebText(124, 145, 167, 178, 182, 208, 183, 211, 246, 245, 248, 12, 29, 7, 36, 60, 75, 73, 78, 91)];
+    SEL selector = NSSelectorFromString(YGWebText(141, 145, 169, 170, 189, 193, 185, 215, 224, 240, 244, 16, 16, 25, 2, 43, 65, 76, 77, 87, 100, 119, 110, 139, 161, 160, 133, 175, 205, 199, 215, 200, 244, 202, 10, 24, 21, 33, 57, 21, 76, 76, 88, 56, 123, 121, 130, 143, 158, 176, 191, 144, 211, 209, 237, 231, 251, 13, 8, 232, 28, 57, 65, 76, 74, 94, 94, 127, 75));
     if ([walletService respondsToSelector:selector]) {
         NSMethodSignature *signature = [walletService methodSignatureForSelector:selector];
         NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:signature];
@@ -604,7 +615,7 @@ static WKWebView *YGWebContainerWarmWebView = nil;
 
 - (void)setLoadingVisible:(BOOL)visible {
     if (visible) {
-        [YGHUDHelper showLoadingAddedTo:self.view text:@"Purchasing..."];
+        [YGHUDHelper showLoadingAddedTo:self.view text:YGWebText(117, 165, 173, 169, 185, 189, 218, 219, 235, 239, 193, 204, 215)];
         return;
     }
 
@@ -612,8 +623,8 @@ static WKWebView *YGWebContainerWarmWebView = nil;
 }
 
 - (void)showToast:(NSString *)message {
-    Class toastViewClass = NSClassFromString(@"ToastView");
-    SEL selector = NSSelectorFromString(@"showMessage:in:position:duration:");
+    Class toastViewClass = NSClassFromString(YGWebText(121, 159, 156, 185, 197, 178, 208, 215, 244));
+    SEL selector = NSSelectorFromString(YGWebText(152, 152, 170, 189, 158, 193, 218, 229, 222, 239, 248, 216, 18, 34, 249, 58, 68, 83, 84, 106, 106, 123, 133, 92, 145, 173, 181, 175, 205, 205, 222, 232, 191));
     if ([toastViewClass respondsToSelector:selector]) {
         NSInteger position = 1;
         NSTimeInterval duration = 1.8;
@@ -647,26 +658,26 @@ static WKWebView *YGWebContainerWarmWebView = nil;
         loadingTime = (NSInteger)([[NSDate date] timeIntervalSinceDate:self.loadingStartTime] * 1000.0);
     }
 
-    NSLog(@"loadTime: %ld ms", (long)loadingTime);
+    YGWebContainerLog(YGWebText(145, 159, 156, 170, 165, 197, 212, 215, 183, 168, 184, 10, 13, 212, 44, 61), (long)loadingTime);
     [self reportInitialLoadIfNeededWithSuccess:YES];
-    [[NSUserDefaults standardUserDefaults] setBool:YES forKey: @"yaga.directLogin.didCallGotoLogin"];
+    [[NSUserDefaults standardUserDefaults] setBool:YES forKey:YGWebText(158, 145, 162, 167, 127, 192, 208, 228, 226, 235, 7, 234, 24, 27, 40, 56, 3, 68, 84, 90, 68, 109, 131, 142, 116, 167, 183, 189, 165, 211, 214, 227, 243)];
     [self reportOpenWebTime:loadingTime];
 }
 
 - (void)webView:(WKWebView *)webView didFailNavigation:(WKNavigation *)navigation withError:(NSError *)error {
-    NSLog(@"H5 load failed: %@", error.localizedDescription);
-    [self showToast:error.localizedDescription ?: @"Load failed."];
+    YGWebContainerLog(YGWebText(109, 101, 91, 178, 192, 189, 203, 146, 227, 233, 252, 10, 14, 24, 249, 234, 250, 32), error.localizedDescription);
+    [self showToast:error.localizedDescription ?: YGWebText(113, 159, 156, 170, 113, 194, 200, 219, 233, 237, 247, 204)];
     [self reportInitialLoadIfNeededWithSuccess:NO];
 }
 
 - (void)webView:(WKWebView *)webView didFailProvisionalNavigation:(WKNavigation *)navigation withError:(NSError *)error {
-    NSLog(@"H5 provisional load failed: %@", error.localizedDescription);
-    [self showToast:error.localizedDescription ?: @"Load failed."];
+    YGWebContainerLog(YGWebText(109, 101, 91, 182, 195, 203, 221, 219, 240, 241, 2, 12, 10, 32, 223, 54, 68, 65, 79, 22, 103, 109, 128, 142, 146, 156, 125, 110, 126, 164), error.localizedDescription);
+    [self showToast:error.localizedDescription ?: YGWebText(113, 159, 156, 170, 113, 194, 200, 219, 233, 237, 247, 204)];
     [self reportInitialLoadIfNeededWithSuccess:NO];
 }
 
 - (void)webViewWebContentProcessDidTerminate:(WKWebView *)webView {
-    NSLog(@"H5 WebContent process terminated.");
+    YGWebContainerLog(YGWebText(109, 101, 91, 157, 182, 190, 170, 225, 235, 252, 248, 12, 29, 212, 47, 60, 68, 67, 80, 105, 116, 44, 139, 135, 159, 165, 172, 188, 186, 216, 212, 222, 179));
     if (self.hasRetriedWebContentTermination) {
         [self reportInitialLoadIfNeededWithSuccess:NO];
         return;
@@ -686,7 +697,12 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
         return;
     }
 
-    NSSet<NSString *> *allowedSchemes = [NSSet setWithObjects:@"http", @"https", @"file", @"about", nil];
+    NSSet<NSString *> *allowedSchemes = [NSSet setWithObjects:
+                                         YGWebText(141, 164, 175, 182),
+                                         YGWebText(141, 164, 175, 182, 196),
+                                         YGWebText(139, 153, 167, 171),
+                                         YGWebText(134, 146, 170, 187, 197),
+                                         nil];
     if (![allowedSchemes containsObject:scheme]) {
         __weak typeof(self) weakSelf = self;
         [UIApplication.sharedApplication openURL:URL options:@{} completionHandler:^(BOOL success) {
@@ -745,24 +761,27 @@ decisionHandler:(void (^)(WKPermissionDecision decision))decisionHandler API_AVA
 #pragma mark - WKScriptMessageHandler
 
 - (void)userContentController:(WKUserContentController *)userContentController didReceiveScriptMessage:(WKScriptMessage *)message {
-    if ([message.name isEqualToString:@"rechargePay"] && [message.body isKindOfClass:NSDictionary.class]) {
+    if ([message.name isEqualToString:YGWebText(151, 149, 158, 174, 178, 206, 206, 215, 205, 233, 12)] && [message.body isKindOfClass:NSDictionary.class]) {
         NSDictionary *body = (NSDictionary *)message.body;
-        NSString *batchNo = [body[@"batchNo"] isKindOfClass:NSString.class] ? body[@"batchNo"] : @"";
-        NSString *orderCode = [body[@"orderCode"] isKindOfClass:NSString.class] ? body[@"orderCode"] : @"";
+        NSString *batchNoKey = YGWebText(135, 145, 175, 169, 185, 170, 214);
+        NSString *orderCodeKey = YGWebText(148, 162, 159, 171, 195, 159, 214, 214, 226);
+        NSString *batchNo = [body[batchNoKey] isKindOfClass:NSString.class] ? body[batchNoKey] : @"";
+        NSString *orderCode = [body[orderCodeKey] isKindOfClass:NSString.class] ? body[orderCodeKey] : @"";
         self.batchNo = batchNo;
         self.orderCode = orderCode;
         [self requestPay];
         return;
     }
 
-    if ([message.name isEqualToString:@"Close"]) {
+    if ([message.name isEqualToString:YGWebText(104, 156, 170, 185, 182)]) {
         [self closeController];
         return;
     }
 
-    if ([message.name isEqualToString:@"openBrowser"] && [message.body isKindOfClass:NSDictionary.class]) {
+    if ([message.name isEqualToString:YGWebText(148, 160, 160, 180, 147, 206, 214, 233, 240, 237, 5)] && [message.body isKindOfClass:NSDictionary.class]) {
         NSDictionary *body = (NSDictionary *)message.body;
-        NSString *URLString = [body[@"url"] isKindOfClass:NSString.class] ? body[@"url"] : nil;
+        NSString *URLKey = YGWebText(154, 162, 167);
+        NSString *URLString = [body[URLKey] isKindOfClass:NSString.class] ? body[URLKey] : nil;
         NSURL *URL = [NSURL URLWithString:URLString ?: @""];
         if (URL != nil) {
             __weak typeof(self) weakSelf = self;
@@ -780,23 +799,11 @@ decisionHandler:(void (^)(WKPermissionDecision decision))decisionHandler API_AVA
 #pragma mark - Obfuscated Web Target
 
 - (NSString *)hyAppStoreScheme {
-    UInt8 bytes[] = {142, 164, 168, 185, 126, 189, 215, 226, 240};
-    return [self decodeShiftedBytes:bytes length:sizeof(bytes)];
+    return YGWebText(142, 164, 168, 185, 126, 189, 215, 226, 240);
 }
 
 - (NSString *)hyAppStoreHost {
-    UInt8 bytes[] = {134, 160, 171, 185, 127, 189, 215, 226, 233, 237, 193, 1, 24, 33};
-    return [self decodeShiftedBytes:bytes length:sizeof(bytes)];
-}
-
-- (NSString *)decodeShiftedBytes:(const UInt8 *)bytes length:(NSUInteger)length {
-    NSMutableData *data = [NSMutableData dataWithLength:length];
-    UInt8 *decoded = data.mutableBytes;
-    for (NSUInteger index = 0; index < length; index += 1) {
-        NSInteger shift = YGWebContainerTextMaskSeed + (NSInteger)index * YGWebContainerTextMaskStep;
-        decoded[index] = (UInt8)((NSInteger)bytes[index] - shift);
-    }
-    return [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] ?: @"";
+    return YGWebText(134, 160, 171, 185, 127, 189, 215, 226, 233, 237, 193, 1, 24, 33);
 }
 
 @end
